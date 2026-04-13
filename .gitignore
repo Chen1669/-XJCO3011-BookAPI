@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Django
+*.log
+db.sqlite3
+media/
+
+# Environment
+.env
+bookapi_env/
+
+# Data files
+data/
+
+# IDE
+.vscode/

@@ -1,0 +1,17 @@
+conda activate bookapi_env
+http://127.0.0.1:8000/api/
+http://127.0.0.1:8000/api/books/
+http://127.0.0.1:8000/api/books/top-rated/
+http://127.0.0.1:8000/api/books/author-stats/
+http://127.0.0.1:8000/api/docs/
+python manage.py runserver
+
+| 访问地址                                | 查询内容                |
+| ----------------------------------- | ------------------- |
+| `/api/books/`                       | 查看全部 500 本书（分页）     |
+| `/api/books/1/`                     | 查看 id=1 这本书的详细信息    |
+| `/api/books/?search=Harry`          | 搜索书名或作者含 "Harry" 的书 |
+| `/api/books/?publication_year=2003` | 查看 2003 年出版的书       |
+| `/api/books/top-rated/`             | 查看评分最高的书            |
+| `/api/books/author-stats/`          | 按作者统计书的数量和平均评分      |
+| `/api/books/1/reviews/`             | 查看第 1 本书的所有评价       |
