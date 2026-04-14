@@ -1,4 +1,4 @@
-from django.db.models import Avg, Count
+from django.db.models import Avg, Count, Min, Max
 from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -14,17 +14,22 @@ class BookViewSet(viewsets.ModelViewSet):
     支持按书名、作者搜索，以及按出版年份过滤。
     """
     queryset = Book.objects.all()
+    serializer_class = BookSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['publication_year', 'author']
     search_fields = ['title', 'author', 'isbn']
     ordering_fields = ['average_rating', 'ratings_count', 'publication_year', 'title']
 
-    def get_serializer_class(self):
-        if self.action == 'reviews':
-            return ReviewSerializer
-        if self.action == 'list':
-            return BookListSerializer
-        return BookSerializer
+    def get_queryset(self):
+        queryset = Book.objects.all()
+        min_rating = self.request.query_params.get('min_rating')
+        max_rating = self.request.query_params.get('max_rating')
+        if min_rating is not None:
+            queryset = queryset.filter(average_rating__gte=float(min_rating))
+        if max_rating is not None:
+            queryset = queryset.filter(average_rating__lte=float(max_rating))
+        return queryset
+
 
 
 
@@ -65,20 +70,25 @@ class BookViewSet(viewsets.ModelViewSet):
             'results': serializer.data
         })
 
-    @extend_schema(summary="按作者统计图书数量和平均评分")
-    @action(detail=False, methods=['get'], url_path='author-stats')
-    def author_stats(self, request):
-        """分析接口：按作者聚合统计出版书籍数量和平均评分"""
-        stats = (
-            Book.objects
-            .values('author')
-            .annotate(
-                book_count=Count('id'),
-                avg_rating=Avg('average_rating')
-            )
-            .order_by('-book_count')[:20]
+    @extend_schema(summary="获取数据库整体统计摘要")
+    @action(detail=False, methods=['get'], url_path='stats')
+    def stats(self, request):
+        """分析接口：返回图书数据库的整体统计摘要"""
+        total_books = Book.objects.count()
+        total_reviews = Review.objects.count()
+        rating_stats = Book.objects.filter(ratings_count__gt=0).aggregate(
+            avg=Avg('average_rating'),
+            highest=Max('average_rating'),
+            lowest=Min('average_rating')
         )
-        return Response(list(stats))
+        return Response({
+            'total_books': total_books,
+            'total_reviews': total_reviews,
+            'average_rating_across_all_books': round(rating_stats['avg'] or 0, 2),
+            'highest_rated_book_score': rating_stats['highest'],
+            'lowest_rated_book_score': rating_stats['lowest'],
+        })
+
 
 
 class ReviewViewSet(viewsets.ModelViewSet):
