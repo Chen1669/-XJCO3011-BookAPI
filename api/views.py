@@ -88,6 +88,36 @@ class BookViewSet(viewsets.ModelViewSet):
             'highest_rated_book_score': rating_stats['highest'],
             'lowest_rated_book_score': rating_stats['lowest'],
         })
+    
+    @extend_schema(summary="获取相似书籍推荐（同作者或同年代）")
+    @action(detail=True, methods=['get'], url_path='similar')
+    def similar(self, request, pk=None):
+        """推荐接口：优先推荐同一作者的其他书籍，不足时补充同年代高分书籍"""
+        book = self.get_object()
+        # 第一层：同作者的其他书籍
+        same_author = Book.objects.filter(
+            author=book.author
+        ).exclude(id=book.id).order_by('-average_rating')[:5]
+
+        results = list(same_author)
+
+        # 第二层：若同作者不足3本，补充同年代（±5年）高分书籍
+        if len(results) < 3 and book.publication_year:
+            year_range = Book.objects.filter(
+                publication_year__gte=book.publication_year - 5,
+                publication_year__lte=book.publication_year + 5,
+            ).exclude(id=book.id).exclude(
+                id__in=[b.id for b in results]
+            ).order_by('-average_rating')[:5 - len(results)]
+            results += list(year_range)
+
+        serializer = BookListSerializer(results, many=True)
+        return Response({
+            'book_id': book.id,
+            'title': book.title,
+            'similar_books': serializer.data
+        })
+
 
 
 
